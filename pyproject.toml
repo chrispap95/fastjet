@@ -15,6 +15,6 @@ manylinux-i686-image = "manylinux2014"
 
 [tool.cibuildwheel.linux]
 before-all = [
-    "yum update -y",
-    "yum install -y mpfr-devel boost-devel",
+    "apk update -y",
+    "apk install -y mpfr-devel boost-devel",
 ]
