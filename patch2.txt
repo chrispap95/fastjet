@@ -1,7 +1,7 @@
 --- ClusterSequence_old.cc	2022-11-02 01:34:43.387347058 +0000
 +++ ClusterSequence.cc	2022-11-02 01:36:31.518212219 +0000
 @@ -1017,6 +1017,7 @@
-   // Native algorithm that support it are: kt, ee_kt, Cambridge/Aachen, 
+   // Native algorithm that support it are: kt, ee_kt, Cambridge/Aachen,
    //   genkt and ee_genkt (both with p>=0)
    // For plugins, we check Plugin::exclusive_sequence_meaningful()
 +  /*
@@ -13,6 +13,6 @@
      _exclusive_warnings.warn("dcut and exclusive jets for jet-finders other than kt, C/A or genkt with p>=0 should be interpreted with care.");
    }
 +  */
- 
- 
+
+
    // calculate the point where we have to stop the clustering.
