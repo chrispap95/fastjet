@@ -59,6 +59,11 @@ class FastJetBuild(setuptools.command.build_ext.build_ext):
                 ["patch", "pyinterface/fastjet.i", DIR / "patch.txt"],
                 cwd=FASTJET,
             )
+            # Another patch :(
+            subprocess.run(
+                ["patch", "src/ClusterSequence.cc", DIR / "patch2.txt"],
+                cwd=FASTJET,
+            )
 
             env = os.environ.copy()
             env["PYTHON"] = sys.executable
