@@ -73,19 +73,14 @@ class FastJetBuild(setuptools.command.build_ext.build_ext):
             env["CXXFLAGS"] = "-O3 -Bstatic -lgmp -Bdynamic"
             env["ORIGIN"] = "$ORIGIN"  # if evaluated, it will still be '$ORIGIN'
 
-            ldflags = "LDFLAGS=-Wl,-rpath=$$ORIGIN/_fastjet_core/lib:$$ORIGIN"
-            if sys.platform() == "darwin":
-                ldflags = "LDFLAGS=-Wl,-rpath,$$ORIGIN/_fastjet_core/lib:$$ORIGIN"
-
             args = [
                 f"--prefix={OUTPUT}",
                 "--enable-allcxxplugins",
                 "--enable-cgal-header-only",
-                # "--enable-cgal",
                 f"--with-cgaldir={cgal_dir}",
                 "--enable-swig",
                 "--enable-pyext",
-                f"{ldflags}",
+                "LDFLAGS=-Wl,-rpath=$$ORIGIN/_fastjet_core/lib:$$ORIGIN",
             ]
 
             try:
