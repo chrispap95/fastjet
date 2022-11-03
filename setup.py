@@ -85,7 +85,7 @@ class FastJetBuild(setuptools.command.build_ext.build_ext):
                 f"--with-cgaldir={cgal_dir}",
                 "--enable-swig",
                 "--enable-pyext",
-                ldflags,
+                f"{ldflags}",
             ]
 
             try:
