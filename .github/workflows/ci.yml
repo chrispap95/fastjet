@@ -27,7 +27,7 @@ jobs:
       with:
         extra_args: --hook-stage manual --all-files
 
-  checks-linux:
+  checks:
     name: Check Python ${{ matrix.python-version }} on ${{ matrix.runs-on }}
     runs-on: ${{ matrix.runs-on }}
     strategy:
