@@ -107,11 +107,11 @@ class FastJetInstall(setuptools.command.install.install):
 
         pythondir = pathlib.Path(
             subprocess.check_output(
-                """gmake -f pyinterface/Makefile --eval='print-pythondir:
+                """gmake -f Makefile --eval='print-pythondir:
 \t@echo $(pythondir)
 ' print-pythondir""",
                 shell=True,
-                cwd=FASTJET,
+                cwd=FASTJET / "pyinterface",
                 universal_newlines=True,
             ).strip()
         )
