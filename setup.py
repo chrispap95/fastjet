@@ -72,7 +72,7 @@ class FastJetBuild(setuptools.command.build_ext.build_ext):
             env["PYTHON_INCLUDE"] = f'-I{sysconfig.get_path("include")}'
             env[
                 "CXXFLAGS"
-            ] = "-O3 -Bstatic -lgmp -Bdynamic -std=c++17 -Wno-deprecated-declarations"
+            ] = "-O3 -Bstatic -lgmp -Bdynamic -std=c++17"
             env["ORIGIN"] = "$ORIGIN"  # if evaluated, it will still be '$ORIGIN'
 
             args = [
