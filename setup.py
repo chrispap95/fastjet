@@ -107,7 +107,7 @@ class FastJetInstall(setuptools.command.install.install):
         shutil.copytree(OUTPUT, fastjetdir / "_fastjet_core", symlinks=True)
 
         make = "make"
-        if sys.platform == 'darwin':
+        if sys.platform == "darwin":
             make = "gmake"
 
         pythondir = pathlib.Path(
