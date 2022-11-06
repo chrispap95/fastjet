@@ -76,6 +76,7 @@ class FastJetBuild(setuptools.command.build_ext.build_ext):
             args = [
                 f"--prefix={OUTPUT}",
                 "--enable-allcxxplugins",
+                "--enable-limited-thread-safety",
                 "--enable-cgal-header-only",
                 "--enable-cgal",
                 f"--with-cgaldir={cgal_dir}",
