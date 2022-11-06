@@ -62,10 +62,10 @@ class FastJetBuild(setuptools.command.build_ext.build_ext):
 
             # Patch for segfault of LimitedWarning
             # For more info see https://github.com/scikit-hep/fastjet/pull/131
-            subprocess.run(
-                ["patch", "src/ClusterSequence.cc", DIR / "patch_clustersequence.txt"],
-                cwd=FASTJET,
-            )
+            # subprocess.run(
+            #     ["patch", "src/ClusterSequence.cc", DIR / "patch_clustersequence.txt"],
+            #     cwd=FASTJET,
+            # )
 
             env = os.environ.copy()
             env["PYTHON"] = sys.executable
