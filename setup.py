@@ -106,13 +106,9 @@ class FastJetInstall(setuptools.command.install.install):
 
         shutil.copytree(OUTPUT, fastjetdir / "_fastjet_core", symlinks=True)
 
-        make = "make"
-        if sys.platform == 'darwin':
-            make = "gmake"
-
         pythondir = pathlib.Path(
             subprocess.check_output(
-                f"""{make} -f pyinterface/Makefile --eval='print-pythondir:
+                """make -f pyinterface/Makefile --eval='print-pythondir:
 \t@echo $(pythondir)
 ' print-pythondir""",
                 shell=True,
@@ -123,7 +119,7 @@ class FastJetInstall(setuptools.command.install.install):
 
         pyexecdir = pathlib.Path(
             subprocess.check_output(
-                f"""{make} -f pyinterface/Makefile --eval='print-pyexecdir:
+                """make -f pyinterface/Makefile --eval='print-pyexecdir:
 \t@echo $(pyexecdir)
 ' print-pyexecdir""",
                 shell=True,

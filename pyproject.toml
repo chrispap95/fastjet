@@ -23,8 +23,3 @@ before-all = [
 ]
 # Skip musllinux builds for the moment
 skip = "*-musllinux_*"
-
-[tool.cibuildwheel.macos]
-before-all = [
-    "brew install mpfr boost gmp automake"
-]
