@@ -124,6 +124,7 @@ class FastJetInstall(setuptools.command.install.install):
         pyexecdir = pathlib.Path(
             subprocess.check_output(
                 f"""{make} -f Makefile --eval='print-pyexecdir:
+
 \t@echo $(pyexecdir)
 ' print-pyexecdir""",
                 shell=True,
