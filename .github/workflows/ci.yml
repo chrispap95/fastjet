@@ -29,12 +29,12 @@ jobs:
 
   checks:
     name: Check Python ${{ matrix.python-version }} on ${{ matrix.runs-on }}
+    runs-on: ${{ matrix.runs-on }}
     strategy:
       fail-fast: false
       matrix:
-        python-version:
-          - '3.10'
-    runs-on: macOS-11
+        python-version: ['3.7', '3.11']
+        runs-on: [ubuntu-latest, macOS-11]
 
     steps:
     - uses: actions/checkout@v3
@@ -59,7 +59,7 @@ jobs:
     - name: Test package
       run: python -m pytest -vv -rs -Wd
 
-  test_wheels:
+  test_wheels_linux:
     name: Wheel on Linux
     runs-on: ubuntu-latest
 
@@ -79,9 +79,28 @@ jobs:
       with:
         path: wheelhouse/*.whl
 
+  test_wheels_macOS:
+    name: Wheel on macOS
+    runs-on: macOS-11
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - uses: pypa/cibuildwheel@v2.11.2
+      env:
+        CIBW_ARCHS: auto64
+        CIBW_BUILD: cp311-*
+        CIBW_BUILD_VERBOSITY: 2
+
+    - name: Upload wheels
+      uses: actions/upload-artifact@v3
+      with:
+        path: wheelhouse/*.whl
 
   pass:
-    needs: [pre-commit, checks, test_wheels]
+    needs: [pre-commit, checks, test_wheels_linux, test_wheels_macOS]
     runs-on: ubuntu-latest
     steps:
       - run: echo "All jobs passed"
