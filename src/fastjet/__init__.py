@@ -21,9 +21,6 @@ from fastjet._swig import Boost  # noqa: F401, E402
 from fastjet._swig import CASubJetTagger  # noqa: F401, E402
 from fastjet._swig import CASubJetTaggerStructure  # noqa: F401, E402
 from fastjet._swig import ClusterSequence1GhostPassiveArea  # noqa: F401, E402
-from fastjet._swig import ClusterSequence_fastjet_banner_stream  # noqa: F401, E402
-from fastjet._swig import ClusterSequence_print_banner  # noqa: F401, E402
-from fastjet._swig import ClusterSequence_set_fastjet_banner_stream  # noqa: F401, E402
 from fastjet._swig import ClusterSequenceActiveArea  # noqa: F401, E402
 from fastjet._swig import ClusterSequenceActiveAreaExplicitGhosts  # noqa: F401, E402
 from fastjet._swig import ClusterSequenceArea  # noqa: F401, E402
@@ -34,9 +31,6 @@ from fastjet._swig import ClusterSequenceVoronoiArea  # noqa: F401, E402
 from fastjet._swig import CompositeJetStructure  # noqa: F401, E402
 from fastjet._swig import E_scheme  # noqa: F401, E402
 from fastjet._swig import Error  # noqa: F401, E402
-from fastjet._swig import Error_set_default_stream  # noqa: F401, E402
-from fastjet._swig import Error_set_print_backtrace  # noqa: F401, E402
-from fastjet._swig import Error_set_print_errors  # noqa: F401, E402
 from fastjet._swig import Et2_scheme  # noqa: F401, E402
 from fastjet._swig import Et_scheme  # noqa: F401, E402
 from fastjet._swig import Filter  # noqa: F401, E402
@@ -47,19 +41,13 @@ from fastjet._swig import GhostedAreaSpec  # noqa: F401, E402
 from fastjet._swig import GridMedianBackgroundEstimator  # noqa: F401, E402
 from fastjet._swig import IndexedSortHelper  # noqa: F401, E402
 from fastjet._swig import InternalError  # noqa: F401, E402
-from fastjet._swig import JetDefinition  # noqa: F401, E402
 from fastjet._swig import JetDefinition0Param  # noqa: F401, E402
 from fastjet._swig import JetDefinition1Param  # noqa: F401, E402
 from fastjet._swig import JetDefinition2Param  # noqa: F401, E402
-from fastjet._swig import JetDefinition_algorithm_description  # noqa: F401, E402
-from fastjet._swig import JetDefinition_n_parameters_for_algorithm  # noqa: F401, E402
 from fastjet._swig import JetMedianBackgroundEstimator  # noqa: F401, E402
 from fastjet._swig import JHTopTagger  # noqa: F401, E402
 from fastjet._swig import JHTopTaggerStructure  # noqa: F401, E402
 from fastjet._swig import LimitedWarning  # noqa: F401, E402
-from fastjet._swig import LimitedWarning_set_default_max_warn  # noqa: F401, E402
-from fastjet._swig import LimitedWarning_set_default_stream  # noqa: F401, E402
-from fastjet._swig import LimitedWarning_summary  # noqa: F401, E402
 from fastjet._swig import MassDropTagger  # noqa: F401, E402
 from fastjet._swig import MassDropTaggerStructure  # noqa: F401, E402
 from fastjet._swig import MaxRap  # noqa: F401, E402
@@ -183,6 +171,7 @@ from fastjet._swig import vectorPJ  # noqa: F401, E402
 from fastjet._swig import voronoi_area  # noqa: F401, E402
 from fastjet._swig import zeta2  # noqa: F401, E402
 from fastjet._swig import zeta3  # noqa: F401, E402
+from fastjet._swig import JetDefinition as JetDefinitionNoCast  # noqa: F401, E402
 from fastjet._utils import cos_theta  # noqa: F401, E402
 from fastjet._utils import dot_product  # noqa: F401, E402
 from fastjet._utils import have_same_momentum  # noqa: F401, E402
@@ -197,6 +186,52 @@ from fastjet.version import __version__  # noqa: E402
 
 # TODO: everything should be in this list. Except maybe __version__.
 __all__ = ("__version__",)
+
+
+class JetDefinition(JetDefinitionNoCast):
+    def __init__(self, *args, **kwargs):
+        r"""
+
+        `JetDefinition(JetAlgorithm jet_algorithm_in, double R_in, RecombinationScheme
+            recomb_scheme_in, Strategy strategy_in, int nparameters_in)`
+
+        constructor to fully specify a jet-definition (together with information about
+        how algorithically to run it).
+
+        """
+
+        R_in = kwargs.pop("R_in", None)
+        as_kwargs = False
+        if R_in is None:
+            R_in = args[1]
+        else:
+            as_kwargs = True
+
+        if not isinstance(R_in, (float, int)):
+            raise ValueError(
+                f"R_in should be a real number, got {R_in} of type {type(R_in)}"
+            )
+
+        if isinstance(R_in, int):
+            R_in = float(R_in)
+
+        new_args = args
+        new_kwargs = kwargs
+        if as_kwargs:
+            new_kwargs = kwargs.copy()
+            new_kwargs["R_in"] = R_in
+        else:
+            new_args = (args[0], R_in, *args[2:])
+
+        self.args = new_args
+        self.kwargs = new_kwargs
+        super().__init__(*new_args, **kwargs)
+
+    def __setstate__(self, state):
+        self.__init__(*state["args"], **state["kwargs"])
+
+    def __getstate__(self):
+        return {"args": self.args, "kwargs": self.kwargs}
 
 
 class ClusterSequence:  # The super class
@@ -215,9 +250,23 @@ class ClusterSequence:  # The super class
             fastjet._pyjet.AwkwardClusterSequence.__init__(
                 self, data=data, jetdef=jetdef
             )
-        if isinstance(data, list):
+        elif isinstance(data, list):
             self.__class__ = fastjet._swig.ClusterSequence
             fastjet._swig.ClusterSequence.__init__(self, data, jetdef)
+        else:
+            try:
+                import dask_awkward as dak
+            except ImportError:
+                dak = None
+            if dak is not None and isinstance(data, dak.Array):
+                self.__class__ = fastjet._pyjet.DaskAwkwardClusterSequence
+                fastjet._pyjet.DaskAwkwardClusterSequence.__init__(
+                    self, data=data, jetdef=jetdef
+                )
+            else:
+                raise TypeError(
+                    f"{data} must be an awkward.Array, dask_awkward.Array, or list!"
+                )
 
     def jet_def(self) -> JetDefinition:
         """Returns the Jet Definition Object associated with the instance
@@ -320,6 +369,27 @@ class ClusterSequence:  # The super class
         """
 
         raise AssertionError()
+
+    def exclusive_jets_energy_correlator(
+        self,
+        njets: int = 1,
+        beta: int = 1,
+        npoint: int = 0,
+        angles: int = 0,
+        alpha=0,
+        func="generalized",
+    ) -> ak.Array:
+        """Returns the energy correlator of each exclusive jet.
+
+        Args:
+            njets (int): The number of jets it was clustered to.
+            n_point (int): The number of points in the correlator.
+            angle: The number of angles to be used in the correlator (if angle != n_point, ECFG is used).
+            beta: The beta value for the correlator.
+
+        Returns:
+            awkward.highlevel.Array: Returns an Awkward Array of the same type as the input.
+        """
 
     def exclusive_jets_lund_declusterings(self, njets: int = 10) -> ak.Array:
         """Returns the Lund declustering Delta and k_T parameters from exclusive n_jets.
@@ -563,7 +633,8 @@ class ClusterSequence:  # The super class
             data (awkward.highlevel.Array): An Array containing the Jets.
 
         Returns:
-            awkward.highlevel.Array: Returns an Awkward Array of the same type as the input."""
+            awkward.highlevel.Array: Returns an Awkward Array of the same type as the input.
+        """
         raise AssertionError()
 
     def get_child(self, data: ak.Array) -> ak.Array:

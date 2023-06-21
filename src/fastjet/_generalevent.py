@@ -19,7 +19,7 @@ class _classgeneralevent:
         self.multi_layered_listoffset(self.data, ())
         for i in range(len(self._clusterable_level)):
             self._clusterable_level[i] = ak.Array(
-                self._clusterable_level[i].layout.toListOffsetArray64(True)
+                self._clusterable_level[i].layout.to_ListOffsetArray64(True)
             )
             px, py, pz, E, offsets = self.extract_cons(self._clusterable_level[i])
             px = self.correct_byteorder(px)
@@ -32,68 +32,19 @@ class _classgeneralevent:
             )
 
     def _check_listoffset_subtree(self, data):
-        out = isinstance(
-            data.layout,
-            (
-                ak.layout.ListOffsetArray64,
-                ak.layout.ListOffsetArray32,
-                ak.layout.ListOffsetArrayU32,
-                ak.layout.ListArray64,
-                ak.layout.ListArray32,
-                ak.layout.ListArrayU32,
-                ak.layout.RegularArray,
-            ),
-        )
-        return out
+        return data.layout.is_list
 
     def _check_listoffset(self, data):
-        out = isinstance(
-            data.layout,
-            (
-                ak.layout.ListOffsetArray64,
-                ak.layout.ListOffsetArray32,
-                ak.layout.ListOffsetArrayU32,
-            ),
-        )
-        return out
+        return isinstance(data.layout, ak.contents.ListOffsetArray)
 
     def _check_record(self, data):
-        out = isinstance(
-            data.layout,
-            (
-                ak.layout.RecordArray,
-                ak.layout.NumpyArray,
-            ),
-        )
-
-        return out
+        return data.layout.is_record or data.layout.is_numpy
 
     def _check_indexed(self, data):
-        out = isinstance(
-            data.layout,
-            (
-                ak.layout.IndexedArray64,
-                ak.layout.IndexedArray32,
-                ak.layout.IndexedArray32,
-                ak.layout.IndexedOptionArray64,
-                ak.layout.IndexedOptionArray32,
-            ),
-        )
-
-        return out
+        return data.layout.is_indexed
 
     def multi_layered_listoffset_input(self, data, crumb_list):
-        if isinstance(data.layout, ak.layout.VirtualArray):
-            crumb_list = crumb_list + (None,)
-            self.multi_layered_listoffset(ak.Array(data.layout.array), crumb_list)
-        elif isinstance(
-            data.layout,
-            (
-                ak.layout.UnionArray8_32,
-                ak.layout.UnionArray8_U32,
-                ak.layout.UnionArray8_64,
-            ),
-        ):
+        if data.layout.is_union:
             for i in range(len(data.layout.contents)):
                 temp_crumb = crumb_list + (i,)
                 if self._check_subtree_input(ak.Array(data.layout.contents[i])):
@@ -102,34 +53,17 @@ class _classgeneralevent:
                 self.multi_layered_listoffset_input(
                     ak.Array(data.layout.contents[i]), temp_crumb
                 )
-        elif isinstance(
-            data.layout,
-            (ak.layout.RecordArray,),
-        ):
-            for elem in data.layout.recordlookup:
+        elif data.layout.is_record:
+            for elem in data.layout.fields:
                 temp_crumb = crumb_list + (elem,)
-                if self._check_subtree_input(ak.Array(data.layout.field(elem))):
+                if self._check_subtree_input(ak.Array(data.layout.content(elem))):
                     self._bread_list_input.append(crumb_list)
                     return
                 self.multi_layered_listoffset_input(
-                    ak.Array(data.layout.field(elem)), temp_crumb
+                    ak.Array(data.layout.content(elem)), temp_crumb
                 )
             return
-        elif isinstance(
-            data.layout,
-            (ak.partition.IrregularlyPartitionedArray,),
-        ):
-            for i in range(len(data.layout.partitions)):
-                temp_crumb = crumb_list + (i,)
-                if self._check_subtree_input(ak.Array(data.layout.partitions[i])):
-                    self._bread_list_input.append(crumb_list)
-                    return
-                self.multi_layered_listoffset_input(
-                    ak.Array(data.layout.partitions[i]), temp_crumb
-                )
-        elif self._check_record(
-            ak.Array(data.layout.content),
-        ):
+        elif self._check_record(ak.Array(data.layout.content)):
             attributes = dir(data)
             if (
                 "px" in attributes
@@ -152,17 +86,7 @@ class _classgeneralevent:
             )
 
     def multi_layered_listoffset(self, data, crumb_list):
-        if isinstance(data.layout, ak.layout.VirtualArray):
-            crumb_list = crumb_list + (None,)
-            self.multi_layered_listoffset(ak.Array(data.layout.array), crumb_list)
-        elif isinstance(
-            data.layout,
-            (
-                ak.layout.UnionArray8_32,
-                ak.layout.UnionArray8_U32,
-                ak.layout.UnionArray8_64,
-            ),
-        ):
+        if data.layout.is_union:
             for i in range(len(data.layout.contents)):
                 temp_crumb = crumb_list + (i,)
                 if self._check_subtree(ak.Array(data.layout.contents[i])):
@@ -171,31 +95,16 @@ class _classgeneralevent:
                 self.multi_layered_listoffset(
                     ak.Array(data.layout.contents[i]), temp_crumb
                 )
-        elif isinstance(
-            data.layout,
-            (ak.layout.RecordArray,),
-        ):
-            for elem in data.layout.recordlookup:
+        elif data.layout.is_record:
+            for elem in data.layout.fields:
                 temp_crumb = crumb_list + (elem,)
-                if self._check_subtree(ak.Array(data.layout.field(elem))):
+                if self._check_subtree(ak.Array(data.layout.content(elem))):
                     self._bread_list.append(crumb_list)
                     return
                 self.multi_layered_listoffset(
-                    ak.Array(data.layout.field(elem)), temp_crumb
+                    ak.Array(data.layout.content(elem)), temp_crumb
                 )
             return
-        elif isinstance(
-            data.layout,
-            (ak.partition.IrregularlyPartitionedArray,),
-        ):
-            for i in range(len(data.layout.partitions)):
-                temp_crumb = crumb_list + (i,)
-                if self._check_subtree(ak.Array(data.layout.partitions[i])):
-                    self._bread_list.append(crumb_list)
-                    return
-                self.multi_layered_listoffset(
-                    ak.Array(data.layout.partitions[i]), temp_crumb
-                )
         elif self._check_listoffset_subtree(ak.Array(data.layout.content)):
             if self._check_record(
                 ak.Array(ak.Array(data.layout.content).layout.content),
@@ -330,146 +239,45 @@ class _classgeneralevent:
             return self._out[self._cur_idx].layout
 
         elif self._check_listoffset(ak.Array(layout)):
-            if isinstance(layout, ak.layout.ListOffsetArray64):
-                return ak.layout.ListOffsetArray64(
-                    layout.offsets,
-                    self.replace(layout.content, cluster, level + 1),
-                    layout.identities,
-                    layout.parameters,
+            if isinstance(layout, ak.contents.ListOffsetArray):
+                return layout.copy(
+                    content=self.replace(layout.content, cluster, level + 1)
                 )
-            if isinstance(layout, ak.layout.ListOffsetArray32):
-                return ak.layout.ListOffsetArray32(
-                    layout.offsets,
-                    self.replace(layout.content, cluster, level + 1),
-                    layout.identities,
-                    layout.parameters,
-                )
-            if isinstance(layout, ak.layout.ListOffsetArrayU32):
-                return ak.layout.ListOffsetArrayU32(
-                    layout.offsets,
-                    self.replace(layout.content, cluster, level + 1),
-                    layout.identities,
-                    layout.parameters,
-                )
-        elif isinstance(layout, ak.layout.ByteMaskedArray):
-            return ak.layout.ByteMaskedArray(
-                layout.mask,
-                self.replace(layout.content, cluster, level + 1),
-                layout.valid_when,
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.BitMaskedArray):
-            return ak.layout.BitMaskedArray(
-                layout.mask,
-                self.replace(layout.content, cluster, level + 1),
-                layout.valid_when,
-                len(layout),
-                layout.lsb_order,
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.UnmaskedArray):
-            return ak.layout.UnmaskedArray(
-                self.replace(layout.content, cluster, level + 1),
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.RegularArray):
-            return ak.layout.RegularArray(
-                self.replace(layout.content, cluster, level + 1),
-                layout.size,
-                len(layout),
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.ListArray64):
-            return ak.layout.ListArray64(
-                layout.starts,
-                layout.stops,
-                self.replace(layout.content, cluster, level + 1),
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.ListArray32):
-            return ak.layout.ListArray32(
-                layout.starts,
-                layout.stops,
-                self.replace(layout.content, cluster, level + 1),
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.ListArrayU32):
-            return ak.layout.ListArrayU32(
-                layout.starts,
-                layout.stops,
-                self.replace(layout.content, cluster, level + 1),
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.IndexedArray64):
-            return ak.layout.IndexedArray64(
-                layout.index,
-                self.replace(layout.content, cluster, level + 1),
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.IndexedArray32):
-            return ak.layout.IndexedArray32(
-                layout.index,
-                self.replace(layout.content, cluster, level + 1),
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.IndexedArrayU32):
-            return ak.layout.IndexedArrayU32(
-                layout.index,
-                self.replace(layout.content, cluster, level + 1),
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.IndexedOptionArray64):
-            return ak.layout.IndexedOptionArray64(
-                layout.index,
-                self.replace(layout.content, cluster, level + 1),
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.IndexedOptionArray32):
-            return ak.layout.IndexedOptionArray32(
-                layout.index,
-                self.replace(layout.content, cluster, level + 1),
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.RecordArray):
+        elif isinstance(
+            layout,
+            (
+                ak.contents.BitMaskedArray,  # all of the layouts with one 'content'
+                ak.contents.ByteMaskedArray,
+                ak.contents.IndexedArray,
+                ak.contents.IndexedOptionArray,
+                ak.contents.ListArray,
+                ak.contents.RegularArray,
+                ak.contents.UnmaskedArray,
+            ),
+        ):
+            return layout.copy(content=self.replace(layout.content, cluster, level + 1))
+        elif layout.is_record:
             nextcontents = []
-            for elem in layout.recordlookup:
+            for elem in layout.fields:
                 if elem == self._bread_list[cluster][level]:
                     nextcontents.append(
                         self.replace(
-                            layout.field(self._bread_list[cluster][level]),
+                            layout.content(self._bread_list[cluster][level]),
                             cluster,
                             level + 1,
                         )
                     )
                 else:
                     nextcontents.append(
-                        layout.field(elem),
+                        layout.content(elem),
                     )
-            return ak.layout.RecordArray(
-                nextcontents,
-                layout.recordlookup,
-                len(layout),
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.Record):
-            return ak.layout.Record(
+            return layout.copy(contents=nextcontents)
+        elif isinstance(layout, ak.record.Record):
+            return ak.record.Record(
                 self.replace(layout.array, cluster, level + 1),
                 layout.at,
             )
-        elif isinstance(layout, ak.layout.UnionArray8_32):
+        elif layout.is_union:
             nextcontents = []
             for i in range(len(layout.contents)):
                 if i == self._bread_list[cluster][level]:
@@ -484,78 +292,9 @@ class _classgeneralevent:
                     nextcontents.append(
                         layout.contents[i],
                     )
-            return ak.layout.UnionArray8_32(
-                layout.tags,
-                layout.index,
-                nextcontents,
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.UnionArray8_U32):
-            nextcontents = []
-            for i in range(len(layout.contents)):
-                if i == self._bread_list[cluster][level]:
-                    nextcontents.append(
-                        self.replace(
-                            layout.contents[self._bread_list[cluster][level]],
-                            cluster,
-                            level + 1,
-                        )
-                    )
-                else:
-                    nextcontents.append(
-                        layout.contents[i],
-                    )
-            return ak.layout.UnionArray8_U32(
-                layout.tags,
-                layout.index,
-                nextcontents,
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.UnionArray8_64):
-            nextcontents = []
-            for i in range(len(layout.contents)):
-                if i == self._bread_list[cluster][level]:
-                    nextcontents.append(
-                        self.replace(
-                            layout.contents[self._bread_list[cluster][level]],
-                            cluster,
-                            level + 1,
-                        )
-                    )
-                else:
-                    nextcontents.append(
-                        layout.contents[i],
-                    )
-            return ak.layout.UnionArray8_64(
-                layout.tags,
-                layout.index,
-                nextcontents,
-                layout.identities,
-                layout.parameters,
-            )
-        elif isinstance(layout, ak.layout.VirtualArray):
-            return self.replace(layout.array, cluster, level + 1)
+            return layout.copy(contents=nextcontents)
 
-        if isinstance(layout, ak.partition.PartitionedArray):
-            nextcontents = []
-            for i in range(len(layout.partitions)):
-                if i == self._bread_list[cluster][level]:
-                    nextcontents.append(
-                        self.replace(
-                            layout.partitions[self._bread_list[cluster][level]],
-                            cluster,
-                            level + 1,
-                        )
-                    )
-                else:
-                    nextcontents.append(
-                        layout.partitions[i],
-                    )
-            return ak.partition.IrregularlyPartitionedArray(nextcontents)
-        else:
-            raise AssertionError(layout)
+        raise AssertionError(layout)
 
     def _warn_for_exclusive(self):
         if (
@@ -572,7 +311,8 @@ class _classgeneralevent:
         ):
             warnings.formatwarning = fastjet.formatwarning
             warnings.warn(
-                "dcut and exclusive jets for jet-finders other than kt, C/A or genkt with p>=0 should be interpreted with care."
+                "dcut and exclusive jets for jet-finders other than kt, C/A or genkt with p>=0 should be interpreted with care.",
+                stacklevel=2,
             )
         return
 
@@ -584,14 +324,14 @@ class _classgeneralevent:
             of = np.insert(np_results[-1], len(np_results[-1]), len(np_results[0]))
             self._out.append(
                 ak.Array(
-                    ak.layout.ListOffsetArray64(
-                        ak.layout.Index64(of),
-                        ak.layout.RecordArray(
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(of),
+                        ak.contents.RecordArray(
                             (
-                                ak.layout.NumpyArray(np_results[0]),
-                                ak.layout.NumpyArray(np_results[1]),
-                                ak.layout.NumpyArray(np_results[2]),
-                                ak.layout.NumpyArray(np_results[3]),
+                                ak.contents.NumpyArray(np_results[0]),
+                                ak.contents.NumpyArray(np_results[1]),
+                                ak.contents.NumpyArray(np_results[2]),
+                                ak.contents.NumpyArray(np_results[3]),
                             ),
                             ("px", "py", "pz", "E"),
                             parameters={"__record__": "Momentum4D"},
@@ -610,14 +350,14 @@ class _classgeneralevent:
             np_results = self._results[i].to_numpy_with_constituents(min_pt)
             off = np_results[-1]
             out = ak.Array(
-                ak.layout.ListOffsetArray64(
-                    ak.layout.Index64(np_results[0]),
-                    ak.layout.NumpyArray(np_results[1]),
+                ak.contents.ListOffsetArray(
+                    ak.index.Index64(np_results[0]),
+                    ak.contents.NumpyArray(np_results[1]),
                 ),
                 behavior=self.data.behavior,
             )
             outputs_to_inputs = ak.Array(
-                ak.layout.ListOffsetArray64(ak.layout.Index64(off), out.layout)
+                ak.contents.ListOffsetArray(ak.index.Index64(off), out.layout)
             )
             shape = ak.num(outputs_to_inputs)
             total = np.sum(shape)
@@ -639,14 +379,14 @@ class _classgeneralevent:
             )
             off = np_results[-1]
             out = ak.Array(
-                ak.layout.ListOffsetArray64(
-                    ak.layout.Index64(np_results[0]),
-                    ak.layout.NumpyArray(np_results[1]),
+                ak.contents.ListOffsetArray(
+                    ak.index.Index64(np_results[0]),
+                    ak.contents.NumpyArray(np_results[1]),
                 ),
                 behavior=self.data.behavior,
             )
             outputs_to_inputs = ak.Array(
-                ak.layout.ListOffsetArray64(ak.layout.Index64(off), out.layout)
+                ak.contents.ListOffsetArray(ak.index.Index64(off), out.layout)
             )
             shape = ak.num(outputs_to_inputs)
             total = np.sum(shape)
@@ -663,16 +403,14 @@ class _classgeneralevent:
             np_results = self._results[i].to_numpy_with_constituents(min_pt)
             off = np_results[-1]
             out = ak.Array(
-                ak.layout.ListOffsetArray64(
-                    ak.layout.Index64(np_results[0]),
-                    ak.layout.NumpyArray(np_results[1]),
+                ak.contents.ListOffsetArray(
+                    ak.index.Index64(np_results[0]),
+                    ak.contents.NumpyArray(np_results[1]),
                 ),
                 behavior=self.data.behavior,
             )
             self._out.append(
-                ak.Array(
-                    ak.layout.ListOffsetArray64(ak.layout.Index64(off), out.layout)
-                )
+                ak.Array(ak.contents.ListOffsetArray(ak.index.Index64(off), out.layout))
             )
         res = ak.Array(self._replace_multi())
         return res
@@ -689,17 +427,29 @@ class _classgeneralevent:
             )
             off = np_results[-1]
             out = ak.Array(
-                ak.layout.ListOffsetArray64(
-                    ak.layout.Index64(np_results[0]),
-                    ak.layout.NumpyArray(np_results[1]),
+                ak.contents.ListOffsetArray(
+                    ak.index.Index64(np_results[0]),
+                    ak.contents.NumpyArray(np_results[1]),
                 ),
                 behavior=self.data.behavior,
             )
             self._out.append(
-                ak.Array(
-                    ak.layout.ListOffsetArray64(ak.layout.Index64(off), out.layout)
-                )
+                ak.Array(ak.contents.ListOffsetArray(ak.index.Index64(off), out.layout))
             )
+        res = ak.Array(self._replace_multi())
+        return res
+
+    def exclusive_jets_energy_correlator(
+        self, njets=1, n_point=0, angle: int = 0, beta=1, alpha=0, func="generalized"
+    ):
+        if njets <= 0:
+            raise ValueError("Njets cannot be <= 0")
+
+        self._out = []
+        self._input_flag = 0
+        for i in range(len(self._clusterable_level)):
+            np_results = self._results[i].to_numpy_energy_correlators()
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -715,12 +465,12 @@ class _classgeneralevent:
             )
             off = np_results[-1]
             out = ak.Array(
-                ak.layout.ListOffsetArray64(
-                    ak.layout.Index64(np_results[0]),
-                    ak.layout.RecordArray(
+                ak.contents.ListOffsetArray(
+                    ak.index.Index64(np_results[0]),
+                    ak.contents.RecordArray(
                         (
-                            ak.layout.NumpyArray(np_results[1]),
-                            ak.layout.NumpyArray(np_results[2]),
+                            ak.contents.NumpyArray(np_results[1]),
+                            ak.contents.NumpyArray(np_results[2]),
                         ),
                         ("Delta", "kt"),
                     ),
@@ -728,9 +478,7 @@ class _classgeneralevent:
                 behavior=self.data.behavior,
             )
             self._out.append(
-                ak.Array(
-                    ak.layout.ListOffsetArray64(ak.layout.Index64(off), out.layout)
-                )
+                ak.Array(ak.contents.ListOffsetArray(ak.index.Index64(off), out.layout))
             )
         res = ak.Array(self._replace_multi())
         return res
@@ -743,14 +491,14 @@ class _classgeneralevent:
             of = np.insert(np_results[-1], len(np_results[-1]), len(np_results[0]))
             self._out.append(
                 ak.Array(
-                    ak.layout.ListOffsetArray64(
-                        ak.layout.Index64(of),
-                        ak.layout.RecordArray(
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(of),
+                        ak.contents.RecordArray(
                             (
-                                ak.layout.NumpyArray(np_results[0]),
-                                ak.layout.NumpyArray(np_results[1]),
-                                ak.layout.NumpyArray(np_results[2]),
-                                ak.layout.NumpyArray(np_results[3]),
+                                ak.contents.NumpyArray(np_results[0]),
+                                ak.contents.NumpyArray(np_results[1]),
+                                ak.contents.NumpyArray(np_results[2]),
+                                ak.contents.NumpyArray(np_results[3]),
                             ),
                             ("px", "py", "pz", "E"),
                             parameters={"__record__": "Momentum4D"},
@@ -767,7 +515,7 @@ class _classgeneralevent:
         self._input_flag = 0
         for i in range(len(self._clusterable_level)):
             np_results = self._results[i].to_numpy_n_particles()
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -776,7 +524,7 @@ class _classgeneralevent:
         self._input_flag = 0
         for i in range(len(self._clusterable_level)):
             np_results = self._results[i].to_numpy_n_exclusive_jets(dcut)
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -788,14 +536,14 @@ class _classgeneralevent:
             of = np.insert(np_results[-1], len(np_results[-1]), len(np_results[0]))
             self._out.append(
                 ak.Array(
-                    ak.layout.ListOffsetArray64(
-                        ak.layout.Index64(of),
-                        ak.layout.RecordArray(
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(of),
+                        ak.contents.RecordArray(
                             (
-                                ak.layout.NumpyArray(np_results[0]),
-                                ak.layout.NumpyArray(np_results[1]),
-                                ak.layout.NumpyArray(np_results[2]),
-                                ak.layout.NumpyArray(np_results[3]),
+                                ak.contents.NumpyArray(np_results[0]),
+                                ak.contents.NumpyArray(np_results[1]),
+                                ak.contents.NumpyArray(np_results[2]),
+                                ak.contents.NumpyArray(np_results[3]),
                             ),
                             ("px", "py", "pz", "E"),
                             parameters={"__record__": "Momentum4D"},
@@ -815,14 +563,14 @@ class _classgeneralevent:
             of = np.insert(np_results[-1], len(np_results[-1]), len(np_results[0]))
             self._out.append(
                 ak.Array(
-                    ak.layout.ListOffsetArray64(
-                        ak.layout.Index64(of),
-                        ak.layout.RecordArray(
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(of),
+                        ak.contents.RecordArray(
                             (
-                                ak.layout.NumpyArray(np_results[0]),
-                                ak.layout.NumpyArray(np_results[1]),
-                                ak.layout.NumpyArray(np_results[2]),
-                                ak.layout.NumpyArray(np_results[3]),
+                                ak.contents.NumpyArray(np_results[0]),
+                                ak.contents.NumpyArray(np_results[1]),
+                                ak.contents.NumpyArray(np_results[2]),
+                                ak.contents.NumpyArray(np_results[3]),
                             ),
                             ("px", "py", "pz", "E"),
                             parameters={"__record__": "Momentum4D"},
@@ -853,14 +601,44 @@ class _classgeneralevent:
                 raise ValueError("Either NJets or Dcut sould be entered")
             self._out.append(
                 ak.Array(
-                    ak.layout.ListOffsetArray64(
-                        ak.layout.Index64(of),
-                        ak.layout.RecordArray(
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(of),
+                        ak.contents.RecordArray(
                             (
-                                ak.layout.NumpyArray(np_results[0]),
-                                ak.layout.NumpyArray(np_results[1]),
-                                ak.layout.NumpyArray(np_results[2]),
-                                ak.layout.NumpyArray(np_results[3]),
+                                ak.contents.NumpyArray(np_results[0]),
+                                ak.contents.NumpyArray(np_results[1]),
+                                ak.contents.NumpyArray(np_results[2]),
+                                ak.contents.NumpyArray(np_results[3]),
+                            ),
+                            ("px", "py", "pz", "E"),
+                            parameters={"__record__": "Momentum4D"},
+                        ),
+                    ),
+                    behavior=self.data.behavior,
+                )
+            )
+        res = ak.Array(self._replace_multi())
+        return res
+
+    def exclusive_jets_up_to(self, n_jets):
+        self._warn_for_exclusive()
+        self._out = []
+        self._input_flag = 0
+        for i in range(len(self._clusterable_level)):
+            if n_jets == 0:
+                raise ValueError("Njets cannot be 0")
+            np_results = self._results[i].to_numpy_exclusive_njet_up_to(n_jets)
+            of = np.insert(np_results[-1], len(np_results[-1]), len(np_results[0]))
+            self._out.append(
+                ak.Array(
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(of),
+                        ak.contents.RecordArray(
+                            (
+                                ak.contents.NumpyArray(np_results[0]),
+                                ak.contents.NumpyArray(np_results[1]),
+                                ak.contents.NumpyArray(np_results[2]),
+                                ak.contents.NumpyArray(np_results[3]),
                             ),
                             ("px", "py", "pz", "E"),
                             parameters={"__record__": "Momentum4D"},
@@ -881,14 +659,14 @@ class _classgeneralevent:
             of = np.insert(np_results[-1], len(np_results[-1]), len(np_results[0]))
             self._out.append(
                 ak.Array(
-                    ak.layout.ListOffsetArray64(
-                        ak.layout.Index64(of),
-                        ak.layout.RecordArray(
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(of),
+                        ak.contents.RecordArray(
                             (
-                                ak.layout.NumpyArray(np_results[0]),
-                                ak.layout.NumpyArray(np_results[1]),
-                                ak.layout.NumpyArray(np_results[2]),
-                                ak.layout.NumpyArray(np_results[3]),
+                                ak.contents.NumpyArray(np_results[0]),
+                                ak.contents.NumpyArray(np_results[1]),
+                                ak.contents.NumpyArray(np_results[2]),
+                                ak.contents.NumpyArray(np_results[3]),
                             ),
                             ("px", "py", "pz", "E"),
                             parameters={"__record__": "Momentum4D"},
@@ -908,8 +686,8 @@ class _classgeneralevent:
             off = np_results[-1]
             self._out.append(
                 ak.Array(
-                    ak.layout.ListOffsetArray64(
-                        ak.layout.Index64(off), ak.layout.NumpyArray(np_results[0])
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(off), ak.contents.NumpyArray(np_results[0])
                     )
                 )
             )
@@ -921,7 +699,7 @@ class _classgeneralevent:
         self._input_flag = 0
         for i in range(len(self._clusterable_level)):
             np_results = self._results[i].to_numpy_exclusive_dmerge(njets)
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -930,7 +708,7 @@ class _classgeneralevent:
         self._input_flag = 0
         for i in range(len(self._clusterable_level)):
             np_results = self._results[i].to_numpy_exclusive_dmerge_max(njets)
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -939,7 +717,7 @@ class _classgeneralevent:
         self._input_flag = 0
         for i in range(len(self._clusterable_level)):
             np_results = self._results[i].to_numpy_exclusive_ymerge_max(njets)
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -948,7 +726,7 @@ class _classgeneralevent:
         self._input_flag = 0
         for i in range(len(self._clusterable_level)):
             np_results = self._results[i].to_numpy_exclusive_ymerge(njets)
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -957,7 +735,7 @@ class _classgeneralevent:
         self._input_flag = 0
         for i in range(len(self._clusterable_level)):
             np_results = self._results[i].to_numpy_q()
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -966,7 +744,7 @@ class _classgeneralevent:
         self._input_flag = 0
         for i in range(len(self._clusterable_level)):
             np_results = self._results[i].to_numpy_q2()
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -996,14 +774,14 @@ class _classgeneralevent:
             np_results = self._results[idx].to_numpy_get_parents(px, py, pz, E)
             self._out.append(
                 ak.Array(
-                    ak.layout.ListOffsetArray64(
-                        ak.layout.Index64(np_results[-1]),
-                        ak.layout.RecordArray(
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(np_results[-1]),
+                        ak.contents.RecordArray(
                             (
-                                ak.layout.NumpyArray(np_results[0]),
-                                ak.layout.NumpyArray(np_results[1]),
-                                ak.layout.NumpyArray(np_results[2]),
-                                ak.layout.NumpyArray(np_results[3]),
+                                ak.contents.NumpyArray(np_results[0]),
+                                ak.contents.NumpyArray(np_results[1]),
+                                ak.contents.NumpyArray(np_results[2]),
+                                ak.contents.NumpyArray(np_results[3]),
                             ),
                             ("px", "py", "pz", "E"),
                             parameters={"__record__": "Momentum4D"},
@@ -1027,7 +805,6 @@ class _classgeneralevent:
         if len(self._cluster_inputs) == 0:
             raise TypeError("The Awkward Array is not valid")
         for i in range(len(self._cluster_inputs)):
-
             px = self._cluster_inputs[i].px
             py = self._cluster_inputs[i].py
             pz = self._cluster_inputs[i].pz
@@ -1043,7 +820,7 @@ class _classgeneralevent:
             np_results = self._results[idx].to_numpy_exclusive_subdmerge(
                 px, py, pz, E, nsub
             )
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
 
         res = ak.Array(self._replace_multi())
         return res
@@ -1089,14 +866,14 @@ class _classgeneralevent:
 
             self._out.append(
                 ak.Array(
-                    ak.layout.ListOffsetArray64(
-                        ak.layout.Index64(of),
-                        ak.layout.RecordArray(
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(of),
+                        ak.contents.RecordArray(
                             (
-                                ak.layout.NumpyArray(np_results[0]),
-                                ak.layout.NumpyArray(np_results[1]),
-                                ak.layout.NumpyArray(np_results[2]),
-                                ak.layout.NumpyArray(np_results[3]),
+                                ak.contents.NumpyArray(np_results[0]),
+                                ak.contents.NumpyArray(np_results[1]),
+                                ak.contents.NumpyArray(np_results[2]),
+                                ak.contents.NumpyArray(np_results[3]),
                             ),
                             ("px", "py", "pz", "E"),
                             parameters={"__record__": "Momentum4D"},
@@ -1136,14 +913,14 @@ class _classgeneralevent:
             of = np.insert(np_results[-1], len(np_results[-1]), len(np_results[0]))
             self._out.append(
                 ak.Array(
-                    ak.layout.ListOffsetArray64(
-                        ak.layout.Index64(of),
-                        ak.layout.RecordArray(
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(of),
+                        ak.contents.RecordArray(
                             (
-                                ak.layout.NumpyArray(np_results[0]),
-                                ak.layout.NumpyArray(np_results[1]),
-                                ak.layout.NumpyArray(np_results[2]),
-                                ak.layout.NumpyArray(np_results[3]),
+                                ak.contents.NumpyArray(np_results[0]),
+                                ak.contents.NumpyArray(np_results[1]),
+                                ak.contents.NumpyArray(np_results[2]),
+                                ak.contents.NumpyArray(np_results[3]),
                             ),
                             ("px", "py", "pz", "E"),
                             parameters={"__record__": "Momentum4D"},
@@ -1180,7 +957,7 @@ class _classgeneralevent:
             np_results = self._results[idx].to_numpy_exclusive_subdmerge_max(
                 px, py, pz, E, nsub
             )
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -1209,7 +986,7 @@ class _classgeneralevent:
             np_results = self._results[idx].to_numpy_n_exclusive_subjets(
                 px, py, pz, E, dcut
             )
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -1236,7 +1013,7 @@ class _classgeneralevent:
                 continue
             assert len(self._cluster_inputs[i]) == len(self._clusterable_level[idx])
             np_results = self._results[idx].to_numpy_has_parents(px, py, pz, E)
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -1263,7 +1040,7 @@ class _classgeneralevent:
                 continue
             assert len(self._cluster_inputs[i]) == len(self._clusterable_level[idx])
             np_results = self._results[idx].to_numpy_has_child(px, py, pz, E)
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -1292,7 +1069,7 @@ class _classgeneralevent:
             np_results = self._results[idx].to_numpy_jet_scale_for_algorithm(
                 px, py, pz, E
             )
-            self._out.append(ak.Array(ak.layout.NumpyArray(np_results[0])))
+            self._out.append(ak.Array(ak.contents.NumpyArray(np_results[0])))
         res = ak.Array(self._replace_multi())
         return res
 
@@ -1321,14 +1098,14 @@ class _classgeneralevent:
             np_results = self._results[idx].to_numpy_get_child(px, py, pz, E)
             self._out.append(
                 ak.Array(
-                    ak.layout.ListOffsetArray64(
-                        ak.layout.Index64(np_results[-1]),
-                        ak.layout.RecordArray(
+                    ak.contents.ListOffsetArray(
+                        ak.index.Index64(np_results[-1]),
+                        ak.contents.RecordArray(
                             (
-                                ak.layout.NumpyArray(np_results[0]),
-                                ak.layout.NumpyArray(np_results[1]),
-                                ak.layout.NumpyArray(np_results[2]),
-                                ak.layout.NumpyArray(np_results[3]),
+                                ak.contents.NumpyArray(np_results[0]),
+                                ak.contents.NumpyArray(np_results[1]),
+                                ak.contents.NumpyArray(np_results[2]),
+                                ak.contents.NumpyArray(np_results[3]),
                             ),
                             ("px", "py", "pz", "E"),
                             parameters={"__record__": "Momentum4D"},

@@ -61,13 +61,6 @@ class FastJetBuild(setuptools.command.build_ext.build_ext):
                 cgal_dir = DIR / zip_obj.namelist()[0]
                 zip_obj.extractall(DIR)
 
-            # Patch for FastJet core version 3.4.0
-            # To be removed when https://gitlab.com/fastjet/fastjet/-/merge_requests/1 is merged upstream
-            subprocess.run(
-                ["patch", "pyinterface/fastjet.i", DIR / "patch_fastjet_i.txt"],
-                cwd=FASTJET,
-            )
-
             # Patch for segfault of LimitedWarning
             # For more info see https://github.com/scikit-hep/fastjet/pull/131
             subprocess.run(
@@ -78,23 +71,28 @@ class FastJetBuild(setuptools.command.build_ext.build_ext):
             env = os.environ.copy()
             env["PYTHON"] = sys.executable
             env["PYTHON_INCLUDE"] = f'-I{sysconfig.get_path("include")}'
-            env["CXXFLAGS"] = "-O3 -Bstatic -lgmp -Bdynamic"
+            env["CXXFLAGS"] = "-O3 -Bstatic -lgmp -Bdynamic -std=c++17"
             env["ORIGIN"] = "$ORIGIN"  # if evaluated, it will still be '$ORIGIN'
 
             args = [
                 f"--prefix={OUTPUT}",
+                "--enable-thread-safety",
+                "--disable-auto-ptr",
                 "--enable-allcxxplugins",
                 "--enable-cgal-header-only",
                 "--enable-cgal",
                 f"--with-cgaldir={cgal_dir}",
                 "--enable-swig",
                 "--enable-pyext",
-                "LDFLAGS=-Wl,-rpath=$$ORIGIN/_fastjet_core/lib:$$ORIGIN",
+                "LDFLAGS=-Wl,-rpath,$$ORIGIN/_fastjet_core/lib:$$ORIGIN",
             ]
 
             try:
                 subprocess.run(
-                    ["./autogen.sh"] + args, cwd=FASTJET, env=env, check=True
+                    ["./autogen.sh"] + args,
+                    cwd=FASTJET,
+                    env=env,
+                    check=True,
                 )
             except Exception:
                 subprocess.run(["cat", "config.log"], cwd=FASTJET, check=True)
@@ -106,7 +104,18 @@ class FastJetBuild(setuptools.command.build_ext.build_ext):
             subprocess.run(["make", "install"], cwd=FASTJET, env=env, check=True)
 
             subprocess.run(
-                ["./configure", f"--fastjet-config={FASTJET}/fastjet-config"],
+                ["patch", "./Makefile.in", DIR / "patch_makefilein.txt"],
+                cwd=FASTJET_CONTRIB,
+                env=env,
+                check=True,
+            )
+
+            subprocess.run(
+                [
+                    "./configure",
+                    f"--fastjet-config={FASTJET}/fastjet-config",
+                    "CXXFLAGS=-O3 -Bstatic -Bdynamic -std=c++17",
+                ],
                 cwd=FASTJET_CONTRIB,
                 env=env,
                 check=True,
@@ -134,24 +143,28 @@ class FastJetInstall(setuptools.command.install.install):
 
         shutil.copytree(OUTPUT, fastjetdir / "_fastjet_core", symlinks=True)
 
+        make = "make"
+        if sys.platform == "darwin":
+            make = "gmake"
+
         pythondir = pathlib.Path(
             subprocess.check_output(
-                """make -f pyinterface/Makefile --eval='print-pythondir:
+                f"""{make} -f Makefile --eval='print-pythondir:
 \t@echo $(pythondir)
 ' print-pythondir""",
                 shell=True,
-                cwd=FASTJET,
+                cwd=FASTJET / "pyinterface",
                 universal_newlines=True,
             ).strip()
         )
 
         pyexecdir = pathlib.Path(
             subprocess.check_output(
-                """make -f pyinterface/Makefile --eval='print-pyexecdir:
+                f"""{make} -f Makefile --eval='print-pyexecdir:
 \t@echo $(pyexecdir)
 ' print-pyexecdir""",
                 shell=True,
-                cwd=FASTJET,
+                cwd=FASTJET / "pyinterface",
                 universal_newlines=True,
             ).strip()
         )

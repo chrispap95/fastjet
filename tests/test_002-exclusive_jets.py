@@ -64,6 +64,43 @@ def test_exclusive_multi():
     assert multi_exclusive_dcut == cluster.exclusive_jets(dcut=0.0001).to_list()
 
 
+def test_exclusive_up_to_multi():
+    array = ak.Array(
+        [
+            [
+                {"px": 1.2, "py": 3.2, "pz": 5.4, "E": 2.5, "ex": 0.78},
+                {"px": 32.2, "py": 64.21, "pz": 543.34, "E": 24.12, "ex": 0.35},
+                {"px": 32.45, "py": 63.21, "pz": 543.14, "E": 24.56, "ex": 0.0},
+            ],
+            [
+                {"px": 1.2, "py": 3.2, "pz": 5.4, "E": 2.5, "ex": 0.78},
+                {"px": 32.2, "py": 64.21, "pz": 543.34, "E": 24.12, "ex": 0.35},
+                {"px": 32.45, "py": 63.21, "pz": 543.14, "E": 24.56, "ex": 0.0},
+            ],
+        ]
+    )
+    jetdef = fastjet.JetDefinition(fastjet.antikt_algorithm, 0.6)
+    cluster = fastjet._pyjet.AwkwardClusterSequence(array, jetdef)
+    multi_exclusive_njets = [
+        [
+            {"px": 32.2, "py": 64.21, "pz": 543.34, "E": 24.12},
+            {"px": 32.45, "py": 63.21, "pz": 543.14, "E": 24.56},
+            {"px": 1.2, "py": 3.2, "pz": 5.4, "E": 2.5},
+        ],
+        [
+            {"px": 32.2, "py": 64.21, "pz": 543.34, "E": 24.12},
+            {"px": 32.45, "py": 63.21, "pz": 543.14, "E": 24.56},
+            {"px": 1.2, "py": 3.2, "pz": 5.4, "E": 2.5},
+        ],
+    ]
+    # cluster.exclusive_jets(n_jets=4) raises a RuntimeError
+    # because there are only 3 constitutents
+    with pytest.raises(RuntimeError):
+        cluster.exclusive_jets(n_jets=4)
+    # cluster.exclusive_jets_up_to(njets=4) returns the 3 constituents
+    assert multi_exclusive_njets == cluster.exclusive_jets_up_to(n_jets=4).to_list()
+
+
 def test_exclusive_constituents_single():
     array = ak.Array(
         [
@@ -107,15 +144,20 @@ def test_exclusive_lund_declustering_single():
 
     lds = cluster.exclusive_jets_lund_declusterings(2)
 
-    lund_declustering_output = [
+    # expected output from x86_64, aarch64 is slightly different
+    lund_declustering_output = ak.Array(
         [
-            {"Delta": 0.08755181299980186, "kt": 0.30179987478357223},
-            {"Delta": 0.019481226884377707, "kt": 0.06602095529127928},
-        ],
-        [{"Delta": 0.014750342295225208, "kt": 1.0480537658466145}],
-    ]
+            [
+                {"Delta": 0.08755181299980186, "kt": 0.30179987478357223},
+                {"Delta": 0.019481226884377707, "kt": 0.06602095529127928},
+            ],
+            [{"Delta": 0.014750342295225208, "kt": 1.0480537658466145}],
+        ]
+    )
 
-    assert lund_declustering_output == lds.to_list()
+    is_close = ak.ravel(ak.isclose(lund_declustering_output, lds, rtol=1e-12, atol=0))
+
+    assert ak.all(is_close)
 
 
 def test_exclusive_lund_declustering_multi():
@@ -144,24 +186,92 @@ def test_exclusive_lund_declustering_multi():
 
     lds = cluster.exclusive_jets_lund_declusterings(2)
 
-    lund_declustering_output = [
+    # expected output from x86_64, aarch64 is slightly different
+    lund_declustering_output = ak.Array(
         [
             [
-                {"Delta": 0.08755181299980186, "kt": 0.30179987478357223},
-                {"Delta": 0.019481226884377707, "kt": 0.06602095529127928},
+                [
+                    {"Delta": 0.08755181299980186, "kt": 0.30179987478357223},
+                    {"Delta": 0.019481226884377707, "kt": 0.06602095529127928},
+                ],
+                [{"Delta": 0.014750342295225208, "kt": 1.0480537658466145}],
             ],
-            [{"Delta": 0.014750342295225208, "kt": 1.0480537658466145}],
-        ],
-        [
             [
-                {"Delta": 0.08755181299980186, "kt": 0.30179987478357223},
-                {"Delta": 0.019481226884377707, "kt": 0.06602095529127928},
+                [
+                    {"Delta": 0.08755181299980186, "kt": 0.30179987478357223},
+                    {"Delta": 0.019481226884377707, "kt": 0.06602095529127928},
+                ],
+                [{"Delta": 0.014750342295225208, "kt": 1.0480537658466145}],
             ],
-            [{"Delta": 0.014750342295225208, "kt": 1.0480537658466145}],
-        ],
-    ]
+        ]
+    )
 
-    assert lund_declustering_output == lds.to_list()
+    is_close = ak.ravel(ak.isclose(lund_declustering_output, lds, rtol=1e-12, atol=0))
+
+    assert ak.all(is_close)
+
+
+def test_exclusive_energy_correlator():
+    array = ak.Array(
+        [
+            {"px": 1.2, "py": 3.2, "pz": 5.4, "E": 2.5, "ex": 0.78},
+            {"px": 1.25, "py": 3.15, "pz": 5.4, "E": 2.4, "ex": 0.78},
+            {"px": 1.4, "py": 3.15, "pz": 5.4, "E": 2.0, "ex": 0.78},
+            {"px": 32.2, "py": 64.21, "pz": 543.34, "E": 24.12, "ex": 0.35},
+            {"px": 32.45, "py": 63.21, "pz": 543.14, "E": 24.56, "ex": 0.0},
+        ],
+        with_name="Momentum4D",
+    )
+
+    jetdef = fastjet.JetDefinition(fastjet.cambridge_algorithm, 0.8)
+    cluster = fastjet._pyjet.AwkwardClusterSequence(array, jetdef)
+
+    ec1 = cluster.exclusive_jets_energy_correlator(func="generic", npoint=1)
+    ec2 = cluster.exclusive_jets_energy_correlator(func="generic", npoint=2)
+    ecg2 = cluster.exclusive_jets_energy_correlator(
+        func="generalized", npoint=2, angles=1
+    )
+
+    is_close = ak.ravel(
+        ak.isclose(ak.Array([ec2 / ec1 / ec1]), ak.Array([ecg2]), rtol=1e-12, atol=0)
+    )
+
+    assert ak.all(is_close)
+
+
+def test_exclusive_energy_correlator_multi():
+    array = ak.Array(
+        [
+            [
+                {"px": 1.2, "py": 3.2, "pz": 5.4, "E": 2.5, "ex": 0.78},
+                {"px": 1.25, "py": 3.15, "pz": 5.4, "E": 2.4, "ex": 0.78},
+                {"px": 1.4, "py": 3.15, "pz": 5.4, "E": 2.0, "ex": 0.78},
+                {"px": 32.2, "py": 64.21, "pz": 543.34, "E": 24.12, "ex": 0.35},
+                {"px": 32.45, "py": 63.21, "pz": 543.14, "E": 24.56, "ex": 0.0},
+            ],
+            [
+                {"px": 1.2, "py": 3.2, "pz": 5.4, "E": 2.5, "ex": 0.78},
+                {"px": 1.25, "py": 3.15, "pz": 5.4, "E": 2.4, "ex": 0.78},
+                {"px": 1.4, "py": 3.15, "pz": 5.4, "E": 2.0, "ex": 0.78},
+                {"px": 32.2, "py": 64.21, "pz": 543.34, "E": 24.12, "ex": 0.35},
+                {"px": 32.45, "py": 63.21, "pz": 543.14, "E": 24.56, "ex": 0.0},
+            ],
+        ],
+        with_name="Momentum4D",
+    )
+
+    jetdef = fastjet.JetDefinition(fastjet.cambridge_algorithm, 0.8)
+    cluster = fastjet._pyjet.AwkwardClusterSequence(array, jetdef)
+
+    ec1 = cluster.exclusive_jets_energy_correlator(func="generic", npoint=1)
+    ec2 = cluster.exclusive_jets_energy_correlator(func="generic", npoint=2)
+    ecg2 = cluster.exclusive_jets_energy_correlator(
+        func="generalized", npoint=2, angles=1
+    )
+
+    is_close = ak.ravel(ak.isclose((ec2 / ec1 / ec1), ecg2, rtol=1e-12, atol=0))
+
+    assert ak.all(is_close)
 
 
 def test_exclusive_constituents_multi():
@@ -273,22 +383,22 @@ def test_listoffset_indexed_input():
         with_name="Momentum4D",
     )
     out = ak.Array(
-        ak.layout.RecordArray(
+        ak.contents.RecordArray(
             [
-                ak.layout.NumpyArray(np.asarray(ak.Array(inputs.layout.content).px)),
-                ak.layout.NumpyArray(np.asarray(ak.Array(inputs.layout.content).py)),
-                ak.layout.NumpyArray(np.asarray(ak.Array(inputs.layout.content).pz)),
-                ak.layout.NumpyArray(np.asarray(ak.Array(inputs.layout.content).E)),
+                ak.contents.NumpyArray(np.asarray(ak.Array(inputs.layout.content).px)),
+                ak.contents.NumpyArray(np.asarray(ak.Array(inputs.layout.content).py)),
+                ak.contents.NumpyArray(np.asarray(ak.Array(inputs.layout.content).pz)),
+                ak.contents.NumpyArray(np.asarray(ak.Array(inputs.layout.content).E)),
             ],
             ["px", "py", "pz", "E"],
         )
     )
     out = ak.Array(
-        ak.layout.IndexedArray64(
-            ak.layout.Index64([7, 2, 3, 1, 0, 5, 4, 6, 8]), out.layout
+        ak.contents.IndexedArray(
+            ak.index.Index64([7, 2, 3, 1, 0, 5, 4, 6, 8]), out.layout
         )
     )
-    out = ak.Array(ak.layout.ListOffsetArray64(inputs.layout.offsets, out.layout))
+    out = ak.Array(ak.contents.ListOffsetArray(inputs.layout.offsets, out.layout))
     jetdef = fastjet.JetDefinition(fastjet.antikt_algorithm, 0.6)
     cluster = fastjet._pyjet.AwkwardClusterSequence(out, jetdef)
     inclusive_jets = [
